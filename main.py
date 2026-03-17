@@ -171,3 +171,41 @@ async def search_player(player_name: str):
             pass
 
     return {"query": player_name, "results": results, "count": len(results)}
+
+
+@app.get("/player_injuries/{player_name}")
+async def get_player_injuries_by_name(player_name: str):
+    """
+    Combined endpoint: search for player by name, then return their injuries.
+    Single call, no race conditions.
+    """
+    # Step 1: Search
+    search_result = await search_player(player_name)
+    results = search_result.get("results", [])
+
+    if not results:
+        return {
+            "found": False,
+            "query": player_name,
+            "player_id": None,
+            "player_name": None,
+            "injuries": [],
+            "note": "Player not found on Transfermarkt"
+        }
+
+    player = results[0]
+    player_id = player["id"]
+
+    # Step 2: Fetch injuries
+    inj_result = await get_injuries(player_id)
+
+    return {
+        "found": True,
+        "query": player_name,
+        "player_id": player_id,
+        "player_name": player["name"],
+        "club": player.get("club", ""),
+        "transfermarkt_url": f"https://www.transfermarkt.com/a/verletzungen/spieler/{player_id}",
+        "injuries": inj_result.get("injuries", []),
+        "error": inj_result.get("error")
+    }
